@@ -6,6 +6,7 @@ import debug
 from data import status
 from data.config.color import Color
 from data.config.layout import Layout
+from data.time_formats import TIME_FORMAT_12H, TIME_FORMAT_24H
 from utils import deep_update
 
 SCROLLING_SPEEDS = [0.3, 0.2, 0.1, 0.075, 0.05, 0.025, 0.01]
@@ -34,6 +35,7 @@ class Config:
         self.news_ticker_countdowns = json["news_ticker"]["countdowns"]
         self.news_ticker_date = json["news_ticker"]["date"]
         self.news_ticker_date_format = json["news_ticker"]["date_format"]
+        self.news_no_games = json["news_ticker"]["display_no_games_live"]
 
         # Display Standings
         self.standings_team_offday = json["standings"]["team_offday"]
@@ -62,6 +64,10 @@ class Config:
         self.time_format = json["time_format"]
         self.end_of_day = json["end_of_day"]
         self.full_team_names = json["full_team_names"]
+        self.short_team_names_for_runs_hits = json["short_team_names_for_runs_hits"]
+        self.pregame_weather = json["pregame_weather"]
+        self.delay_in_10s_of_seconds = json["preferred_game_update_delay_in_10s_of_seconds"]
+
         self.debug = json["debug"]
         self.demo_date = json["demo_date"]
         # Make sure the scrolling speed setting is in range so we don't crash
@@ -92,6 +98,7 @@ class Config:
 
         # Check the rotation_rates to make sure it's valid and not silly
         self.check_rotate_rates()
+        self.check_delay()
 
     def check_preferred_teams(self):
         if not isinstance(self.preferred_teams, str) and not isinstance(self.preferred_teams, list):
@@ -103,6 +110,19 @@ class Config:
         if isinstance(self.preferred_teams, str):
             team = self.preferred_teams
             self.preferred_teams = [team]
+
+    def check_delay(self):
+        if self.delay_in_10s_of_seconds < 0:
+            debug.warning(
+                "preferred_game_update_delay_in_10s_of_seconds should be a positive integer. Using default value of 0"
+            )
+            self.delay_in_10s_of_seconds = 0
+        if self.delay_in_10s_of_seconds != int(self.delay_in_10s_of_seconds):
+            debug.warning(
+                "preferred_game_update_delay_in_10s_of_seconds should be an integer."
+                f" Truncating to {int(self.delay_in_10s_of_seconds)}"
+            )
+            self.delay_in_10s_of_seconds = int(self.delay_in_10s_of_seconds)
 
     def check_preferred_divisions(self):
         if not isinstance(self.preferred_divisions, str) and not isinstance(self.preferred_divisions, list):
@@ -117,19 +137,21 @@ class Config:
 
     def check_time_format(self):
         if self.time_format.lower() == "24h":
-            self.time_format = "%H"
+            self.time_format = TIME_FORMAT_24H
         else:
-            self.time_format = "%I"
+            self.time_format = TIME_FORMAT_12H
 
     def check_rotate_rates(self):
         if not isinstance(self.rotation_rates, dict):
             try:
                 rate = float(self.rotation_rates)
                 self.rotation_rates = {"live": rate, "final": rate, "pregame": rate}
+
+                debug.warning("(DEPRECATION) Config option rotation->rates no longer supports single Float values!")
+                debug.warning("              Re-run the install/update script to convert to the new format")
+                debug.warning("              Example: sudo sh ./install.sh")
             except:
-                debug.warning(
-                    "rotation_rates should be a Dict or Float. Using default value. {}".format(DEFAULT_ROTATE_RATES)
-                )
+                debug.warning("rotation_rates should be a Dict. Using default value. {}".format(DEFAULT_ROTATE_RATES))
                 self.rotation_rates = DEFAULT_ROTATE_RATES
 
         for key, value in list(self.rotation_rates.items()):
@@ -177,7 +199,7 @@ class Config:
         if os.path.isfile(path):
             j = json.load(open(path))
         else:
-            debug.warning(f"Could not find json file {path}.  Skipping.")
+            debug.info(f"Could not find json file {path}.  Skipping.")
         return j
 
     # example config is a "base config" which always gets read.

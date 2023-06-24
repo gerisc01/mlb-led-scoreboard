@@ -24,7 +24,7 @@ TEAMS = {
     "Red Sox",
     "Cubs",
     "Reds",
-    "Indians",
+    "Guardians",
     "Rockies",
     "Tigers",
     "Astros",
@@ -52,4 +52,4 @@ if __name__ == "__main__":
                 config["preferred"]["teams"] = teams
 
                 with open("config.json", "w") as f:
-                    json.dump(config, f)
+                    json.dump(config, f, indent=4)

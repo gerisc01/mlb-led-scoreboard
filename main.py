@@ -1,8 +1,19 @@
 import sys
 
+from data.screens import ScreenType
+
 if sys.version_info <= (3, 5):
     print("Error: Please run with python3")
     sys.exit(1)
+
+import statsapi
+
+statsapi_version = tuple(map(int, statsapi.__version__.split(".")))
+if statsapi_version < (1, 5, 1):
+    print("Error: We require MLB-StatsAPI 1.5.1 or higher. You may need to re-run install.sh")
+    sys.exit(1)
+elif statsapi_version < (1, 6, 1):
+    print("Warning: We recommend MLB-StatsAPI 1.6.1 or higher. You may want to re-run install.sh")
 
 import logging
 import os
@@ -11,24 +22,16 @@ import time
 
 from PIL import Image
 
+# Important! Import the driver first to initialize it, then import submodules as needed.
+import driver
+from driver import RGBMatrix, __version__
+from utils import args, led_matrix_options
+
 import debug
 from data import Data
 from data.config import Config
 from renderers.main import MainRenderer
-from utils import args, led_matrix_options
-
-try:
-    from rgbmatrix import RGBMatrix, __version__
-
-    emulated = False
-except ImportError:
-    from RGBMatrixEmulator import RGBMatrix, version
-
-    emulated = True
-
-
-SCRIPT_NAME = "MLB LED Scoreboard"
-SCRIPT_VERSION = "5.0.0-dev"
+from version import SCRIPT_NAME, SCRIPT_VERSION
 
 
 def main(matrix, config_base):
@@ -44,9 +47,11 @@ def main(matrix, config_base):
     # Print some basic info on startup
     debug.info("%s - v%s (%sx%s)", SCRIPT_NAME, SCRIPT_VERSION, matrix.width, matrix.height)
 
-    if emulated:
-        debug.log("rgbmatrix not installed, falling back to emulator!")
-        debug.log("Using RGBMatrixEmulator version %s", version.__version__)
+    if driver.is_emulated():
+        if driver.hardware_load_failed:
+            debug.log("rgbmatrix not installed, falling back to emulator!")
+
+        debug.log("Using RGBMatrixEmulator version %s", __version__)
     else:
         debug.log("Using rgbmatrix version %s", __version__)
 
@@ -55,7 +60,7 @@ def main(matrix, config_base):
 
     # MLB image disabled when using renderer, for now.
     # see: https://github.com/ty-porter/RGBMatrixEmulator/issues/9#issuecomment-922869679
-    if os.path.exists(logo) and not emulated:
+    if os.path.exists(logo) and driver.is_hardware():
         logo = Image.open(logo)
         matrix.SetImage(logo.convert("RGB"))
         logo.close()
@@ -70,16 +75,18 @@ def main(matrix, config_base):
     render.start()
 
     screen = data.get_screen_type()
-    if screen == "news":
-        __refresh_offday(render, data)
-    elif screen == "standings":
+    if screen == ScreenType.ALWAYS_NEWS:
+        __refresh_news(render, data)
+    elif screen == ScreenType.ALWAYS_STANDINGS:
         __refresh_standings(render, data)
+    elif screen == ScreenType.LEAGUE_OFFDAY or screen == ScreenType.PREFERRED_TEAM_OFFDAY:
+        __refresh_offday(render, data)
     else:
-        __refresh_games(render, data)
+        __refresh_gameday(render, data)
 
 
-def __refresh_offday(render_thread, data):  # type: (threading.Thread, Data) -> None
-    debug.log("Main has selected the offday information to refresh")
+def __refresh_news(render_thread, data):  # type: (threading.Thread, Data) -> None
+    debug.log("Main has selected the news to refresh")
     while render_thread.is_alive():
         time.sleep(30)
         data.refresh_weather()
@@ -93,11 +100,20 @@ def __refresh_standings(render_thread, data):  # type: (threading.Thread, Data) 
             time.sleep(30)
             data.refresh_standings()
     else:
-        __refresh_offday(render_thread, data)
+        __refresh_news(render_thread, data)
 
 
-def __refresh_games(render_thread, data):  # type: (threading.Thread, Data) -> None
-    debug.log("Main has selected the game and schedule information to refresh")
+def __refresh_offday(render_thread, data):  # type: (threading.Thread, Data) -> None
+    debug.log("Main has selected the offday information to refresh")
+    while render_thread.is_alive():
+        time.sleep(30)
+        data.refresh_standings()
+        data.refresh_weather()
+        data.refresh_news_ticker()
+
+
+def __refresh_gameday(render_thread, data):  # type: (threading.Thread, Data) -> None
+    debug.log("Main has selected the gameday information to refresh")
 
     starttime = time.time()
     promise_game = data.schedule.games_live()
@@ -105,14 +121,22 @@ def __refresh_games(render_thread, data):  # type: (threading.Thread, Data) -> N
     while render_thread.is_alive():
         time.sleep(0.5)
         data.refresh_schedule()
-        if data.config.standings_no_games:
-            if not data.schedule.games_live():
+        if not data.schedule.games_live():
+            cont = False
+            if data.config.standings_no_games:
                 data.refresh_standings()
+                cont = True
+            if data.config.news_no_games:
+                data.refresh_news_ticker()
+                data.refresh_weather()
+                cont = True
+            if cont:
                 continue
-            # make sure a game is poulated
-            elif not promise_game:
-                promise_game = True
-                data.advance_to_next_game()
+
+        # make sure a game is populated
+        elif not promise_game:
+            promise_game = True
+            data.advance_to_next_game()
 
         rotate = data.should_rotate_to_next_game()
         if data.schedule.games_live() and not rotate:

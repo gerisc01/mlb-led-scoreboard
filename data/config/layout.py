@@ -1,7 +1,4 @@
-try:
-    from rgbmatrix import graphics
-except ImportError:
-    from RGBMatrixEmulator import graphics
+from driver import graphics
 
 import os.path
 
@@ -71,7 +68,7 @@ class Layout:
         if font_name in self.font_cache:
             return self.font_cache[font_name]
 
-        font_paths = ["assets", "submodules/matrix/fonts"]
+        font_paths = ["assets/fonts/patched", "submodules/matrix/fonts"]
         for font_path in font_paths:
             path = f"{font_path}/{font_name}.bdf"
             if os.path.isfile(path):

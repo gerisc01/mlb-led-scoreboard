@@ -1,3 +1,4 @@
+import html
 import time
 from datetime import datetime
 
@@ -6,12 +7,6 @@ import feedparser
 import debug
 from data.dates import Dates
 from data.update import UpdateStatus
-
-try:
-    from HTMLParser import HTMLParser
-except ImportError:
-    from html.parser import HTMLParser
-
 
 HEADLINE_UPDATE_RATE = 60 * 60  # 1 hour between feed updates
 HEADLINE_SPACER_SIZE = 10  # Number of spaces between headlines
@@ -28,7 +23,7 @@ MLB_FEEDS = {
     "Astros": "astros",
     "Athletics": "athletics",
     "Blue Jays": "bluejays",
-    "Indians": "indians",
+    "Guardians": "guardians",
     "Mariners": "mariners",
     "Orioles": "orioles",
     "Rangers": "rangers",
@@ -44,7 +39,7 @@ MLB_FEEDS = {
     "Cardinals": "cardinals",
     "Cubs": "cubs",
     "Diamondbacks": "dbacks",
-    "D-Backs": "dbacks",
+    "D-backs": "dbacks",
     "Dodgers": "dodgers",
     "Giants": "giants",
     "Marlins": "marlins",
@@ -64,7 +59,7 @@ TRADE_FEEDS = {
     "Astros": "houston-astros",
     "Athletics": "oakland-athletics",
     "Blue Jays": "toronto-blue-jays",
-    "Indians": "cleveland-indians",
+    "Guardians": "cleveland-guardians",
     "Mariners": "seattle-mariners",
     "Orioles": "baltimore-orioles",
     "Rangers": "texas-rangers",
@@ -80,7 +75,7 @@ TRADE_FEEDS = {
     "Cardinals": "st-louis-cardinals",
     "Cubs": "chicago-cubs",
     "Diamondbacks": "arizona-diamondbacks",
-    "D-Backs": "arizona-diamondbacks",
+    "D-backs": "arizona-diamondbacks",
     "Dodgers": "los-angeles-dodgers",
     "Giants": "san-francisco-giants",
     "Marlins": "florida-marlins",
@@ -174,8 +169,7 @@ class Headlines:
 
         for idx, entry in enumerate(feed.entries):
             if idx < max_entries:
-                h = HTMLParser()
-                text = h.unescape(entry.title)
+                text = html.unescape(entry.title)
                 headlines += text + spaces
         return title + spaces + headlines
 
@@ -194,10 +188,22 @@ class Headlines:
                     self.feed_urls.append(self.__traderumors_url_for_team(team))
 
     def __mlb_url_for_team(self, team_name):
-        return "{}/{}/{}".format(MLB_BASE, MLB_FEEDS[team_name], MLB_PATH)
+        feed_name = MLB_FEEDS.get(team_name, None)
+
+        if feed_name is None:
+            debug.error(f"Failed to fetch MLB feed name for key '{team_name}', falling back to default feed.")
+            feed_name = MLB_FEEDS["MLB"]
+
+        return "{}/{}/{}".format(MLB_BASE, feed_name, MLB_PATH)
 
     def __traderumors_url_for_team(self, team_name):
-        return "{}/{}/{}".format(TRADE_BASE, TRADE_FEEDS[team_name], TRADE_PATH)
+        feed_name = TRADE_FEEDS.get(team_name, None)
+
+        if feed_name is None:
+            debug.error(f"Failed to fetch MLB Trade Rumors feed name for key '{team_name}', falling back to default feed.")
+            feed_name = ""
+
+        return "{}/{}/{}".format(TRADE_BASE, feed_name, TRADE_PATH)
 
     def __should_update(self):
         endtime = time.time()

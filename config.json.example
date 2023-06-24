@@ -7,6 +7,7 @@
 		"team_offday": true,
 		"always_display": false,
 		"preferred_teams": true,
+		"display_no_games_live": false,
 		"traderumors": true,
 		"mlb_news": true,
 		"countdowns": true,
@@ -42,6 +43,9 @@
 	"time_format": "12h",
 	"end_of_day": "00:00",
 	"full_team_names": true,
+	"short_team_names_for_runs_hits": true,
+	"preferred_game_update_delay_in_10s_of_seconds": 0,
+	"pregame_weather": true,
 	"scrolling_speed": 2,
 	"debug": false,
 	"demo_date": false

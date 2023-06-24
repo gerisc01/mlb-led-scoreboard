@@ -147,6 +147,21 @@
       "y": 33,
       "width": 12
     },
+    "pitch": {
+      "font_name": "4x6",
+      "x": 1,
+      "y": 50,
+      "enabled": false,
+      "mph": false,
+      "desc_length": "Short"
+    },
+    "pitch_count": {
+      "font_name": "4x6",
+      "x": 1,
+      "y": 50,
+      "enabled": false,
+      "append_pitcher_name": false
+    },
     "loop": 16,
     "strikeout": {
       "x": 33,
@@ -283,7 +298,7 @@
     "scrolling_text": {
       "x": 0,
       "y": 30,
-      "width": 64
+      "width": 32
     },
     "time": {
       "x": 16,

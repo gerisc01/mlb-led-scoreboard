@@ -18,6 +18,11 @@ The layout can have a couple of different states where things are rendered diffe
   * `compress_digits` will reduce the space between digits when the number of runs or hits is > 9.
   * `spacing` is the number of pixels between the runs/hits and hits/errors.
 
+## Pitch Data
+* `enabled` (true/false) turn feature on/off
+* `mph` (true/false) When rendering pitch speed add mph after (99 mph)
+* `desc_length` (Short/Long) The short or long pitch type description, you can change both the short and long description to your liking in data/pitches as long as you do not change the index value.  
+
 ## Updates
 The software develops and releases features with full support for the default layouts, so custom layouts may look unsatisfactory if you update to later versions of the scoreboard. If you as a user decide to create a custom layout file, you are responsible for tweaking the coordinates to your liking with each update.
 
@@ -25,3 +30,5 @@ The software develops and releases features with full support for the default la
 A couple of things are not completely implemented or have some implementation details you should understand.
 
 * `bases` currently requires an even `size` value to be rendered correctly
+* Not all options are enabled on all board sizes by default.  For example pitch count and pitch type are not enabled by default on boards smaller than 64x64. Options are "disabled" by forcing them to render outside the board, by setting X and Y coordinates less than 0 or greater than the height or width of the board.
+

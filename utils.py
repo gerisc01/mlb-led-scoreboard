@@ -1,10 +1,5 @@
-try:
-    from rgbmatrix import RGBMatrixOptions
-except ImportError:
-    from RGBMatrixEmulator import RGBMatrixOptions
-
 import argparse
-import collections
+from collections.abc import Mapping
 
 import debug
 
@@ -125,10 +120,18 @@ def args():
         default="config",
         type=str,
     )
+    parser.add_argument(
+        "--emulated",
+        action="store_const",
+        help="Force using emulator mode over default matrix display.",
+        const=True
+    )
     return parser.parse_args()
 
 
 def led_matrix_options(args):
+    from driver import RGBMatrixOptions
+
     options = RGBMatrixOptions()
 
     if args.led_gpio_mapping is not None:
@@ -142,6 +145,7 @@ def led_matrix_options(args):
     options.multiplexing = args.led_multiplexing
     options.pwm_bits = args.led_pwm_bits
     options.brightness = args.led_brightness
+    options.scan_mode = args.led_scan_mode
     options.pwm_lsb_nanoseconds = args.led_pwm_lsb_nanoseconds
     options.led_rgb_sequence = args.led_rgb_sequence
 
@@ -180,7 +184,7 @@ def deep_update(source, overrides):
     Modify ``source`` in place.
     """
     for key, value in list(overrides.items()):
-        if isinstance(value, collections.Mapping) and value:
+        if isinstance(value, Mapping) and value:
             returned = deep_update(source.get(key, {}), value)
             source[key] = returned
         else:

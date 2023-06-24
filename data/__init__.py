@@ -1,7 +1,6 @@
 import time
-from datetime import datetime, timedelta
+from data.screens import ScreenType
 
-import data.config.layout as layout
 import debug
 from data import status
 from data.game import Game
@@ -20,43 +19,31 @@ class Data:
         # Save the parsed config
         self.config = config
 
-        # Parse today's date and see if we should use today or yesterday
-        self.today = self.__parse_today()
-
         # get schedule
-        self.schedule: Schedule = Schedule(self.today, config)
+        self.schedule: Schedule = Schedule(config)
         # NB: Can return none, but shouldn't matter?
         self.current_game: Game = self.schedule.get_preferred_game()
+        if self.current_game is not None:
+            self.print_game_data_debug()
+
         self.game_changed_time = time.time()
+        if self.current_game is not None:
+            self.__update_layout_state()
 
         # Weather info
         self.weather: Weather = Weather(config)
 
         # News headlines
-        self.headlines: Headlines = Headlines(config, self.today.year)
+        self.headlines: Headlines = Headlines(config, self.schedule.date.year)
 
         # Fetch all standings data for today
-        self.standings: Standings = Standings(
-            self.today, config.preferred_divisions, self.headlines.important_dates.playoffs_start_date
-        )
+        self.standings: Standings = Standings(config, self.headlines.important_dates.playoffs_start_date)
 
         # Network status state - we useweather condition as a sort of sentinial value
         self.network_issues: bool = self.weather.conditions == "Error"
 
         # RENDER ITEMS
         self.scrolling_finished: bool = False
-
-    def __parse_today(self):
-        if self.config.demo_date:
-            today = datetime.strptime(self.config.demo_date, "%Y-%m-%d")
-        else:
-            today = datetime.today()
-            end_of_day = datetime.strptime(self.config.end_of_day, "%H:%M").replace(
-                year=today.year, month=today.month, day=today.day
-            )
-            if end_of_day > datetime.now():
-                today -= timedelta(days=1)
-        return today
 
     def should_rotate_to_next_game(self):
         game = self.current_game
@@ -92,12 +79,13 @@ class Data:
     def advance_to_next_game(self):
         game = self.schedule.next_game()
         if game is not None:
+            if game.game_id != self.current_game.game_id:
+                self.game_changed_time = time.time()
             self.current_game = game
             self.__update_layout_state()
             self.print_game_data_debug()
             self.network_issues = False
-            if game.game_id != self.current_game.game_id:
-                self.game_changed_time = time.time()
+
         else:
             self.network_issues = True
 
@@ -119,31 +107,29 @@ class Data:
         elif status == UpdateStatus.FAIL:
             self.network_issues = True
 
-    def get_screen_type(self):
+    def get_screen_type(self) -> ScreenType:
         # Always the news
         if self.config.news_ticker_always_display:
-            return "news"
+            return ScreenType.ALWAYS_NEWS
         # Always the standings
-        elif self.config.standings_always_display:
-            return "standings"
-
+        if self.config.standings_always_display:
+            return ScreenType.ALWAYS_STANDINGS
         # Full MLB Offday
-        elif self.schedule.is_offday():
-            if self.config.standings_mlb_offday:
-                return "standings"
-            else:
-                return "news"
+        if self.schedule.is_offday():
+            return ScreenType.LEAGUE_OFFDAY
+
         # Preferred Team Offday
-        elif self.schedule.is_offday_for_preferred_team():
-            if self.config.news_ticker_team_offday:
-                return "news"
-            elif self.config.standings_team_offday:
-                return "standings"
+        if self.schedule.is_offday_for_preferred_team() and (
+            self.config.news_ticker_team_offday or self.config.standings_team_offday
+        ):
+            return ScreenType.PREFERRED_TEAM_OFFDAY
+
         # Playball!
-        else:
-            return "games"
+        return ScreenType.GAMEDAY
 
     def __update_layout_state(self):
+        import data.config.layout as layout
+
         self.config.layout.set_state()
         if self.current_game.status() == status.WARMUP:
             self.config.layout.set_state(layout.LAYOUT_STATE_WARMUP)
@@ -155,7 +141,8 @@ class Data:
             self.config.layout.set_state(layout.LAYOUT_STATE_PERFECT)
 
     def print_game_data_debug(self):
-        debug.log("Game Data Refreshed: %s", self.current_game._data["gameData"]["game"]["id"])
+        debug.log("Game Data Refreshed: %s", self.current_game._current_data["gameData"]["game"]["id"])
+        debug.log("Current game is %d seconds behind", self.current_game.current_delay())
         debug.log("Pre: %s", Pregame(self.current_game, self.config.time_format))
         debug.log("Live: %s", Scoreboard(self.current_game))
         debug.log("Final: %s", Postgame(self.current_game))

@@ -123,6 +123,21 @@
       "y": 28,
       "width": 50
     },
+    "pitch": {
+      "font_name": "4x6",
+      "x": 1,
+      "y": 50,
+      "enabled": false,
+      "mph": false,
+      "desc_length": "Short"
+    },
+    "pitch_count": {
+      "font_name": "4x6",
+      "x": 1,
+      "y": 50,
+      "enabled": false,
+      "append_pitcher_name": false
+    },
     "loop": 64,
     "strikeout": {
       "x": 31,
@@ -177,7 +192,7 @@
       "series_x_gap": 16,
       "wc_x_start": 2,
       "wc_y_start": 20,
-      "ds_b_y_start": 39,
+      "ds_a_y_start": 39,
       "__comment": "all other coords are based off wild card position"
     }
   },
